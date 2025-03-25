@@ -3,20 +3,18 @@
 This is a **Flutter** project demonstrating a simple **doctor-patient prescription workflow** using **Firebase Firestore**. The app includes:
 
 - A **Patient** side, where users can see their profile (with a QR code) and any prescribed medications.
-- (Optionally) A **Doctor** side, where doctors can scan the patient’s QR and add prescriptions.
+- A **Doctor** side, where doctors can scan the patient’s QR and add prescriptions.
 
 ---
 
 ## Table of Contents
 1. [Overview](#overview)  
-2. [Features](#features)  
-3. [Project Structure](#project-structure)  
-4. [Requirements](#requirements)  
-5. [Setup & Installation](#setup--installation)  
-6. [Running the App](#running-the-app)  
-7. [Firestore Structure](#firestore-structure)  
-8. [Dependencies](#dependencies)  
-9. [License](#license)  
+2. [Features](#features)
+3. [Requirements](#requirements)  
+4. [Setup & Installation](#setup--installation)  
+5. [Running the App](#running-the-app)  
+6. [Firestore Structure](#firestore-structure)  
+7. [Dependencies](#dependencies)
 
 ---
 
@@ -71,3 +69,69 @@ The **QR code** allows a doctor’s app (or “Doctor Mode”) to quickly scan a
    ```bash
    git clone https://github.com/yourusername/prescription-app.git
    cd prescription-app
+
+---
+
+## Running the app
+1. **Using run command**:
+   ```bash
+   flutter run
+
+---
+
+## Firestore Structure
+
+patients (collection)
+  └── patient001 (document)
+       ├── Name: "Sachham"
+       ├── Age: 18
+       ├── Meal-timing:
+       │    ├── Breakfast: "7:30 AM"
+       │    ├── Lunch: "1:00 PM"
+       │    └── Dinner: "7:30 PM"
+       └── medications (subcollection)
+            └── {medicationId} (document)
+                 ├── medicineName: "Paracetamol"
+                 ├── dosage: "500 mg"
+                 ├── frequency: "1-0-1"
+                 └── durationDays: 5
+
+---
+
+## Dependencies
+
+Below are the primary dependencies used in this project:
+
+- **Flutter SDK**  
+  The core framework for building cross-platform apps.  
+  *(Ensure you have a recent stable version installed, e.g. Flutter 3.x or above.)*
+
+- **firebase_core**  
+  For initializing and configuring Firebase within your Flutter app.
+
+- **cloud_firestore**  
+  To perform read/write operations on Firestore (the NoSQL database from Firebase).
+
+- **qr_flutter**  
+  Generates QR codes within the app, allowing for easy scanning of unique patient IDs.
+
+*(Optional)*
+
+- **firebase_auth**  
+  If you need user authentication or want to restrict database access to certain roles (doctor vs. patient).
+
+Check your `pubspec.yaml` for the exact versions:
+```yaml
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: ^2.10.0
+  cloud_firestore: ^4.7.1
+  qr_flutter: ^4.0.0
+  firebase_auth: ^4.6.2 (optional)
+
+
+
+
+
+    
