@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "155575190793",
+    "project_id": "vit-prescription",
+    "storage_bucket": "vit-prescription.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:155575190793:android:cef303c7028e7b1343bfd8",
+        "android_client_info": {
+          "package_name": "com.example.dd"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQ12qaGtR0byr6AS9S0BXhK2HO7DZNBa8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:155575190793:android:9145b1a96785039943bfd8",
+        "android_client_info": {
+          "package_name": "com.example.dosedost"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQ12qaGtR0byr6AS9S0BXhK2HO7DZNBa8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
