@@ -80,21 +80,23 @@ The **QR code** allows a doctor’s app (or “Doctor Mode”) to quickly scan a
 ---
 
 ## Firestore Structure
+1. **A structure for online Database**
+    ```bash
+    patients (collection)
+    └── patient001 (document)
+                ├── Name: "Sachham"
+                ├── Age: 18
+                ├── Meal-timing:
+                │    ├── Breakfast: "7:30 AM"
+                │    ├── Lunch: "1:00 PM"
+                │    └── Dinner: "7:30 PM"
+                └── medications (subcollection)
+                        └── {medicationId} (document)
+                         ├── medicineName: "Paracetamol"
+                         ├── dosage: "500 mg"
+                         ├── frequency: "1-0-1"
+                         └── durationDays: 5
 
-patients (collection)
-  └── patient001 (document)
-       ├── Name: "Sachham"
-       ├── Age: 18
-       ├── Meal-timing:
-       │    ├── Breakfast: "7:30 AM"
-       │    ├── Lunch: "1:00 PM"
-       │    └── Dinner: "7:30 PM"
-       └── medications (subcollection)
-            └── {medicationId} (document)
-                 ├── medicineName: "Paracetamol"
-                 ├── dosage: "500 mg"
-                 ├── frequency: "1-0-1"
-                 └── durationDays: 5
 
 ---
 
@@ -129,9 +131,3 @@ dependencies:
   cloud_firestore: ^4.7.1
   qr_flutter: ^4.0.0
   firebase_auth: ^4.6.2 (optional)
-
-
-
-
-
-    
