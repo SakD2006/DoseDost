@@ -69,7 +69,7 @@ The **QR code** allows a doctor’s app (or “Doctor Mode”) to quickly scan a
 
 1. **Clone this repository** (or download the ZIP):
    ```bash
-   git clone https://github.com/yourusername/prescription-app.git
+   git clone https://github.com/SakD2006/prescription-app.git
    cd prescription-app
 
 ---
