@@ -55,7 +55,10 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     Text(
                       'Name: $patientName',
-                      style: const TextStyle(fontSize: 16),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Text(
                       'Age: $patientAge',
