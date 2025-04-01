@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'home_screen.dart'; // Make sure HomeScreen is implemented
+import 'package:firebase_auth/firebase_auth.dart';
+import 'home_screen.dart';
+import '../auth/login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final String patientId;
@@ -84,6 +86,25 @@ class ProfileScreen extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+            // Sign Out Button
+            ElevatedButton.icon(
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                );
+              },
+              icon: const Icon(Icons.logout),
+              label: const Text('Sign Out'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -95,7 +116,6 @@ class ProfileScreen extends StatelessWidget {
         ],
         onTap: (index) {
           if (index == 0) {
-            // Navigate to HomeScreen
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -107,7 +127,7 @@ class ProfileScreen extends StatelessWidget {
               ),
             );
           }
-          // When Profile (index 1) is tapped, no action is needed since we're already here.
+          // No action when Profile is tapped as we're already here.
         },
       ),
     );
