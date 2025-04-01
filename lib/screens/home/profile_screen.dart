@@ -99,7 +99,11 @@ class ProfileScreen extends StatelessWidget {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => HomeScreen(patientId: patientId),
+                builder:
+                    (context) => HomeScreen(
+                      patientId: patientId,
+                      patientName: patientName,
+                    ),
               ),
             );
           }

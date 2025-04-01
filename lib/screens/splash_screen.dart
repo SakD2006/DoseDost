@@ -55,12 +55,14 @@ class _SplashScreenState extends State<SplashScreen>
             ),
           );
         } else {
+          // Use displayName if available; otherwise fallback to email or "Patient"
+          String patientName = user.displayName ?? user.email ?? "Patient";
           Navigator.pushReplacement(
             context,
             PageRouteBuilder(
               pageBuilder:
                   (context, animation, secondaryAnimation) =>
-                      HomeScreen(patientId: user.uid),
+                      HomeScreen(patientId: user.uid, patientName: patientName),
               transitionsBuilder: (
                 context,
                 animation,
