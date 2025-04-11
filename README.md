@@ -122,7 +122,7 @@ The **QR code** allows a doctor’s app (or “Doctor Mode”) to quickly scan a
     ```bash
     patients (collection)
     └── patient001 (document)
-                ├── Name: "Sachham"
+                ├── Name: "Saksham"
                 ├── Age: 18
                 ├── Meal-timing:
                 │    ├── Breakfast: "7:30 AM"
