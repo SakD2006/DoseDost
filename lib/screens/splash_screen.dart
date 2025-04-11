@@ -28,7 +28,7 @@ class _SplashScreenState extends State<SplashScreen>
     _fadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(_controller);
 
     // Delay before starting the fade animation
-    Timer(const Duration(seconds: 2), () {
+    Timer(const Duration(seconds: 1), () {
       _controller.forward();
     });
 
@@ -51,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen>
               ) {
                 return FadeTransition(opacity: animation, child: child);
               },
-              transitionDuration: const Duration(milliseconds: 300),
+              transitionDuration: const Duration(milliseconds: 100),
             ),
           );
         } else {
