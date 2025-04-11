@@ -1,5 +1,5 @@
 # DoseDost 💊
-# Prescription Maker & Patient App
+# Patient App
 
 
 This is a **Flutter** project demonstrating a simple **doctor-patient prescription workflow** using **Firebase Firestore**. The app includes:
