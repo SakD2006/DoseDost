@@ -169,3 +169,16 @@ dependencies:
   cloud_firestore: ^4.7.1
   qr_flutter: ^4.0.0
   firebase_auth: ^4.6.2 (optional)
+```
+
+---
+
+## TEAM
+
+**BigBoyCoders**
+- Saksham 24BBS0081
+- Aryaman 24BBS0110
+- Prakyath 24BBS0079
+- Devarsh 24BBS0153
+- Tanay 24BBS0104
+
