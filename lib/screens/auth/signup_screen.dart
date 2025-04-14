@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../home/home_screen.dart';
 import 'login_screen.dart';
+import 'verification_screen.dart'; // New import for verification screen
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -117,6 +118,9 @@ class _SignupScreenState extends State<SignupScreen> {
 
       User? user = userCredential.user;
       if (user != null) {
+        // Send email verification
+        await user.sendEmailVerification();
+
         int age = _calculateAge(_selectedDate!);
 
         DateTime now = DateTime.now();
@@ -164,13 +168,16 @@ class _SignupScreenState extends State<SignupScreen> {
                 'Dinner': dinnerTimestamp,
               },
               'Created At': FieldValue.serverTimestamp(),
+              'Email Verified': false, // Add verification status to database
             });
 
+        // Navigate to verification screen instead of home
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder:
-                (context) => HomeScreen(
+                (context) => VerificationScreen(
+                  email: _emailController.text.trim(),
                   patientId: user.uid,
                   patientName:
                       "${_firstNameController.text.trim()} ${_lastNameController.text.trim()}",
