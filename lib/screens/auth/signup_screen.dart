@@ -21,24 +21,23 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController _weightController = TextEditingController();
 
   DateTime? _selectedDate;
-  TimeOfDay _breakfastTime = TimeOfDay(hour: 8, minute: 0);
-  TimeOfDay _lunchTime = TimeOfDay(hour: 13, minute: 0);
-  TimeOfDay _dinnerTime = TimeOfDay(hour: 19, minute: 0);
+  TimeOfDay _breakfastTime = const TimeOfDay(hour: 8, minute: 0);
+  TimeOfDay _lunchTime = const TimeOfDay(hour: 13, minute: 0);
+  TimeOfDay _dinnerTime = const TimeOfDay(hour: 19, minute: 0);
+
+  String? _selectedGender;
+  final List<String> _genderOptions = ['Male', 'Female', 'Other'];
 
   String? errorMessage;
   bool _isLoading = false;
 
-  // Calculate age based on date of birth
   int _calculateAge(DateTime birthDate) {
     final DateTime now = DateTime.now();
     int age = now.year - birthDate.year;
-
-    // Adjust age if birthday hasn't occurred yet this year
     if (now.month < birthDate.month ||
         (now.month == birthDate.month && now.day < birthDate.day)) {
       age--;
     }
-
     return age;
   }
 
@@ -92,12 +91,12 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Future<void> _signup() async {
-    // Input validation
     if (_emailController.text.trim().isEmpty ||
         _passwordController.text.trim().isEmpty ||
         _firstNameController.text.trim().isEmpty ||
         _lastNameController.text.trim().isEmpty ||
-        _selectedDate == null) {
+        _selectedDate == null ||
+        _selectedGender == null) {
       setState(() {
         errorMessage = "Please fill in all required fields";
       });
@@ -110,7 +109,6 @@ class _SignupScreenState extends State<SignupScreen> {
     });
 
     try {
-      // Create the user using Firebase Auth.
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
             email: _emailController.text.trim(),
@@ -119,10 +117,8 @@ class _SignupScreenState extends State<SignupScreen> {
 
       User? user = userCredential.user;
       if (user != null) {
-        // Calculate age from date of birth
         int age = _calculateAge(_selectedDate!);
 
-        // Save additional user details to Firestore under "patients" collection.
         await FirebaseFirestore.instance
             .collection('patients')
             .doc(user.uid)
@@ -130,6 +126,7 @@ class _SignupScreenState extends State<SignupScreen> {
               'Email': _emailController.text.trim(),
               'First Name': _firstNameController.text.trim(),
               'Last Name': _lastNameController.text.trim(),
+              'Gender': _selectedGender,
               'Date of Birth': Timestamp.fromDate(_selectedDate!),
               'Age': age,
               'Height': _heightController.text.trim(),
@@ -142,7 +139,6 @@ class _SignupScreenState extends State<SignupScreen> {
               'Created At': FieldValue.serverTimestamp(),
             });
 
-        // Navigate to HomeScreen passing the patientId and a display name.
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -224,7 +220,6 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                       ),
 
-                    // Personal Information Section
                     _buildSectionTitle('Personal Information'),
                     _buildInfoRow([
                       Expanded(
@@ -243,10 +238,18 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                       ),
                     ]),
-
                     const SizedBox(height: 16),
-
-                    // Date of Birth Field
+                    _buildDropdownField<String>(
+                      label: 'Gender*',
+                      value: _selectedGender,
+                      items: _genderOptions,
+                      onChanged: (val) {
+                        setState(() {
+                          _selectedGender = val;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
                     GestureDetector(
                       onTap: () => _pickDate(context),
                       child: AbsorbPointer(
@@ -265,7 +268,6 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                       ),
                     ),
-
                     if (_selectedDate != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 8.0, left: 12.0),
@@ -277,14 +279,12 @@ class _SignupScreenState extends State<SignupScreen> {
                           ),
                         ),
                       ),
-
                     const SizedBox(height: 16),
                     TextField(
                       controller: _emailController,
                       decoration: _inputDecoration('Email Address*'),
                       keyboardType: TextInputType.emailAddress,
                     ),
-
                     const SizedBox(height: 16),
                     TextField(
                       controller: _passwordController,
@@ -295,8 +295,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
 
                     const SizedBox(height: 24),
-
-                    // Health Information Section
                     _buildSectionTitle('Health Information'),
                     _buildInfoRow([
                       Expanded(
@@ -317,8 +315,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     ]),
 
                     const SizedBox(height: 24),
-
-                    // Meal Timing Section
                     _buildSectionTitle('Meal Timings'),
                     _buildTimePickerTile(
                       title: 'Breakfast Time',
@@ -335,10 +331,8 @@ class _SignupScreenState extends State<SignupScreen> {
                       time: _dinnerTime,
                       onTap: () => _pickTime(context, 'dinner'),
                     ),
-
                     const SizedBox(height: 32),
 
-                    // Signup Button
                     ElevatedButton(
                       onPressed: _signup,
                       style: ElevatedButton.styleFrom(
@@ -357,8 +351,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
 
                     const SizedBox(height: 20),
-
-                    // Login Link
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -430,6 +422,35 @@ class _SignupScreenState extends State<SignupScreen> {
           ],
         ),
         onTap: onTap,
+      ),
+    );
+  }
+
+  Widget _buildDropdownField<T>({
+    required String label,
+    required T? value,
+    required List<T> items,
+    required void Function(T?) onChanged,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade400),
+      ),
+      child: DropdownButtonFormField<T>(
+        value: value,
+        isExpanded: true,
+        decoration: InputDecoration(labelText: label, border: InputBorder.none),
+        items:
+            items.map((item) {
+              return DropdownMenuItem<T>(
+                value: item,
+                child: Text(item.toString()),
+              );
+            }).toList(),
+        onChanged: onChanged,
       ),
     );
   }
