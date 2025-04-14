@@ -7,10 +7,10 @@ class HomeScreen extends StatefulWidget {
   final String patientId;
   final String patientName;
   const HomeScreen({
-    Key? key,
+    super.key,
     required this.patientId,
     required this.patientName,
-  }) : super(key: key);
+  });
 
   @override
   _HomeScreenState createState() => _HomeScreenState();

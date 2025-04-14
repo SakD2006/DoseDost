@@ -15,7 +15,7 @@ class ProfileScreen extends StatelessWidget {
   final String weight;
 
   const ProfileScreen({
-    Key? key,
+    super.key,
     required this.patientId,
     required this.patientName,
     required this.age,
@@ -24,7 +24,7 @@ class ProfileScreen extends StatelessWidget {
     required this.dinner,
     required this.height,
     required this.weight,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
