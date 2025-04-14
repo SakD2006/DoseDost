@@ -42,8 +42,13 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
+		<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
+		<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+    	<string>fetch</string>
+    	<string>remote-notification</string>
+	</array>
 </dict>
 </plist>
