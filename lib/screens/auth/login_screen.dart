@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../home/home_screen.dart'; // Ensure this file exists and HomeScreen is implemented accordingly.
-import 'signup_screen.dart'; // Uncomment if you have SignupScreen
+import '../home/home_screen.dart';
+import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -13,10 +13,23 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-
   String? errorMessage;
+  bool _isLoading = false;
 
   Future<void> _login() async {
+    if (_emailController.text.trim().isEmpty ||
+        _passwordController.text.trim().isEmpty) {
+      setState(() {
+        errorMessage = "Please enter both email and password";
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      errorMessage = null;
+    });
+
     try {
       // Attempt sign in using Firebase Authentication.
       UserCredential userCredential = await FirebaseAuth.instance
@@ -44,6 +57,14 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         errorMessage = e.message;
       });
+    } catch (e) {
+      setState(() {
+        errorMessage = "An unexpected error occurred. Please try again.";
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -57,60 +78,147 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: Text(
-                  errorMessage!,
-                  style: const TextStyle(color: Colors.red),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                border: OutlineInputBorder(),
-              ),
-              obscureText: true,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(onPressed: _login, child: const Text('Login')),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text("Don't have an account?"),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SignupScreen(),
-                      ),
-                    );
-                  },
-                  child: const Text('Sign Up'),
-                ),
-              ],
-            ),
-          ],
-        ),
+      appBar: AppBar(
+        title: const Text('Welcome Back'),
+        centerTitle: true,
+        elevation: 0,
       ),
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 40),
+                      // App logo or icon could go here
+                      const Icon(
+                        Icons.health_and_safety,
+                        size: 80,
+                        color: Colors.blue,
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Sign in to your account',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 30),
+
+                      if (errorMessage != null)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(bottom: 20),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Text(
+                            errorMessage!,
+                            style: TextStyle(color: Colors.red.shade800),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+
+                      TextField(
+                        controller: _emailController,
+                        decoration: InputDecoration(
+                          labelText: 'Email Address',
+                          prefixIcon: const Icon(Icons.email_outlined),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      TextField(
+                        controller: _passwordController,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                        ),
+                        obscureText: true,
+                      ),
+
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () {
+                            // You can implement password reset functionality here
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Password reset functionality to be implemented',
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text('Forgot Password?'),
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      ElevatedButton(
+                        onPressed: _login,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'LOG IN',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text("Don't have an account?"),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const SignupScreen(),
+                                ),
+                              );
+                            },
+                            child: const Text('Sign Up'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
     );
   }
 }
