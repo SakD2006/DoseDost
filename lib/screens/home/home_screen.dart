@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'profile_screen.dart';
 //import '../../services/notification_service.dart';
+import '../auth/login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String patientId;
@@ -98,7 +99,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
+                      );
+                    },
                     child: const Text('Go Back'),
                   ),
                 ],
@@ -498,7 +506,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(width: 8),
                           _buildInfoChip(
                             context,
-                            instructions,
+                            '$instructions meal',
                             Icons.access_time,
                             theme.primaryColor.withOpacity(0.1),
                           ),

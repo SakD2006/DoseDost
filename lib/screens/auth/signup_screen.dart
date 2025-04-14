@@ -119,6 +119,33 @@ class _SignupScreenState extends State<SignupScreen> {
       if (user != null) {
         int age = _calculateAge(_selectedDate!);
 
+        DateTime now = DateTime.now();
+        DateTime breakfastdateTime = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          _breakfastTime.hour,
+          _breakfastTime.minute,
+        );
+        DateTime lunchdateTime = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          _lunchTime.hour,
+          _lunchTime.minute,
+        );
+        DateTime dinnerdateTime = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          _dinnerTime.hour,
+          _dinnerTime.minute,
+        );
+
+        Timestamp breakfastTimestamp = Timestamp.fromDate(breakfastdateTime);
+        Timestamp lunchTimestamp = Timestamp.fromDate(lunchdateTime);
+        Timestamp dinnerTimestamp = Timestamp.fromDate(dinnerdateTime);
+
         await FirebaseFirestore.instance
             .collection('patients')
             .doc(user.uid)
@@ -132,9 +159,9 @@ class _SignupScreenState extends State<SignupScreen> {
               'Height': _heightController.text.trim(),
               'Weight': _weightController.text.trim(),
               'Meal-timing': {
-                'Breakfast': _breakfastTime.format(context),
-                'Lunch': _lunchTime.format(context),
-                'Dinner': _dinnerTime.format(context),
+                'Breakfast': breakfastTimestamp,
+                'Lunch': lunchTimestamp,
+                'Dinner': dinnerTimestamp,
               },
               'Created At': FieldValue.serverTimestamp(),
             });
