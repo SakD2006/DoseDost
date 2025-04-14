@@ -17,6 +17,7 @@ This is a **Flutter** project demonstrating a simple **doctor-patient prescripti
 5. [Running the App](#running-the-app)  
 6. [Firestore Structure](#firestore-structure)  
 7. [Dependencies](#dependencies)
+8. [TEAM](#team)
 
 ---
 
