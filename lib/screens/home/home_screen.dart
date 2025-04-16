@@ -1,7 +1,7 @@
-//home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'profile_screen.dart';
 import '../../services/notification_service.dart';
 import '../auth/login_screen.dart';
@@ -23,13 +23,22 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   String _currentMeal = '';
   bool _initializedRecords = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    // Check current meal time and initialize records
     _checkCurrentMealAndInitializeRecords();
     NotificationService.checkAndSendMedicationReminders();
+
+    // Set loading to false after a brief delay
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    });
   }
 
   Future<void> _checkCurrentMealAndInitializeRecords() async {
@@ -163,62 +172,99 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  String _getMealIcon(String mealName) {
+    switch (mealName) {
+      case 'Breakfast':
+        return '🍳';
+      case 'Lunch':
+        return '🍲';
+      case 'Dinner':
+        return '🍽️';
+      default:
+        return '⏰';
+    }
+  }
+
+  String _getNextMealTime(Map<String, dynamic> mealTiming) {
+    final now = DateTime.now();
+    final currentMinutes = now.hour * 60 + now.minute;
+
+    // Get all meal times in minutes
+    final mealMinutesMap = <String, int>{};
+    for (final entry in mealTiming.entries) {
+      if (entry.value is Timestamp) {
+        final timestamp = entry.value as Timestamp;
+        final dateTime = timestamp.toDate();
+        mealMinutesMap[entry.key] = dateTime.hour * 60 + dateTime.minute;
+      }
+    }
+
+    // Sort meal times to find the next one
+    final sortedMeals =
+        mealMinutesMap.entries.toList()
+          ..sort((a, b) => a.value.compareTo(b.value));
+
+    for (final meal in sortedMeals) {
+      if (meal.value > currentMinutes) {
+        return '${meal.key} at ${formatTimestampToTime(mealTiming[meal.key])}';
+      }
+    }
+
+    // If no meals are upcoming today, return the first meal for tomorrow
+    if (sortedMeals.isNotEmpty) {
+      return '${sortedMeals.first.key} tomorrow at ${formatTimestampToTime(mealTiming[sortedMeals.first.key])}';
+    }
+
+    return 'No upcoming meals';
+  }
+
+  Future<int> _getDailyMedicationCount() async {
+    final db = FirebaseFirestore.instance;
+    final today = DateTime.now().toIso8601String().split('T')[0];
+
+    final intakes =
+        await db
+            .collection('patients')
+            .doc(widget.patientId)
+            .collection('medicineIntakes')
+            .where('date', isEqualTo: today)
+            .get();
+
+    return intakes.docs.length;
+  }
+
+  Future<int> _getTakenMedicationCount() async {
+    final db = FirebaseFirestore.instance;
+    final today = DateTime.now().toIso8601String().split('T')[0];
+
+    final intakes =
+        await db
+            .collection('patients')
+            .doc(widget.patientId)
+            .collection('medicineIntakes')
+            .where('date', isEqualTo: today)
+            .where('taken', isEqualTo: true)
+            .get();
+
+    return intakes.docs.length;
+  }
+
   @override
   Widget build(BuildContext context) {
     final db = FirebaseFirestore.instance;
-    final today =
-        DateTime.now().toIso8601String().split('T')[0]; // e.g., "2023-10-01"
+    final today = DateTime.now().toIso8601String().split('T')[0];
     final todayDate = DateTime.now();
     final theme = Theme.of(context);
 
     return StreamBuilder<DocumentSnapshot>(
       stream: db.collection('patients').doc(widget.patientId).snapshots(),
       builder: (context, patientSnapshot) {
-        if (!patientSnapshot.hasData) {
-          return Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Loading your profile...',
-                    style: theme.textTheme.bodyLarge,
-                  ),
-                ],
-              ),
-            ),
-          );
+        if (!patientSnapshot.hasData || _isLoading) {
+          return _buildLoadingScreen(theme);
         }
+
         if (!patientSnapshot.data!.exists) {
-          return Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline, size: 48, color: Colors.red),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Patient profile not found',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LoginScreen(),
-                        ),
-                      );
-                    },
-                    child: const Text('Go Back'),
-                  ),
-                ],
-              ),
-            ),
-          );
+          return _buildPatientNotFoundScreen();
         }
 
         final patientData =
@@ -229,6 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final patientHeight = patientData['Height'] ?? ' ';
         final patientWeight = patientData['Weight'] ?? ' ';
         final mealTiming = patientData['Meal-timing'] ?? {};
+        final patientBloodType = patientData['Blood Group'] ?? 'Unknown';
 
         // Convert meal timings to minutes
         Map<String, int> mealMinutes = {};
@@ -246,31 +293,48 @@ class _HomeScreenState extends State<HomeScreen> {
         if (currentMeal != _currentMeal) {
           _currentMeal = currentMeal;
           if (currentMeal.isNotEmpty) {
-            // This will run in build, which is not ideal, but will work for this example
-            // In a production app, consider using a better approach like a Timer
             Future.microtask(() => initializeMedicationRecords(currentMeal));
           }
         }
 
         final meals = ['Breakfast', 'Lunch', 'Dinner'];
 
-        // Format current date for display
+        // Format dates for display
         final formattedDate = DateFormat('EEEE, MMMM d').format(todayDate);
+        final formattedTime = DateFormat('h:mm a').format(todayDate);
+
+        // Get next meal time
+        final nextMeal =
+            _currentMeal.isEmpty ? _getNextMealTime(mealTiming) : '';
 
         return Scaffold(
           body: SafeArea(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Custom App Bar with Profile Info
+                // Modern App Bar with Profile Info
                 Container(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(20.0),
                   decoration: BoxDecoration(
-                    color: theme.primaryColor.withOpacity(0.1),
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(20),
-                      bottomRight: Radius.circular(20),
+                    gradient: LinearGradient(
+                      colors: [
+                        theme.primaryColor,
+                        theme.primaryColor.withOpacity(0.7),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(30),
+                      bottomRight: Radius.circular(30),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,70 +345,215 @@ class _HomeScreenState extends State<HomeScreen> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'Hello, ',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.white.withOpacity(0.9),
+                                    ),
+                                  ),
+                                  Text(
+                                    patientFirstName,
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const Text(
+                                    ' 👋',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
                               const SizedBox(height: 8),
-                              Text(
-                                'Hello, $patientFirstName! 👋',
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.calendar_today,
+                                    size: 16,
+                                    color: Colors.white70,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    formattedDate,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 4),
-                              Text(
-                                formattedDate,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[600],
-                                ),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.access_time,
+                                    size: 16,
+                                    color: Colors.white70,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    formattedTime,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                          CircleAvatar(
-                            radius: 24,
-                            backgroundColor: theme.primaryColor,
-                            child: Text(
-                              patientFirstName.isNotEmpty
-                                  ? patientFirstName[0]
-                                  : '?',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => ProfileScreen(
+                                        patientId: widget.patientId,
+                                        patientName:
+                                            "$patientFirstName $patientLastName",
+                                        age: patientAge,
+                                        breakfast: formatTimestampToTime(
+                                          mealTiming['Breakfast'],
+                                        ),
+                                        lunch: formatTimestampToTime(
+                                          mealTiming['Lunch'],
+                                        ),
+                                        dinner: formatTimestampToTime(
+                                          mealTiming['Dinner'],
+                                        ),
+                                        height: patientHeight,
+                                        weight: patientWeight,
+                                        bloodType: patientBloodType,
+                                      ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                              ),
+                              child: CircleAvatar(
+                                radius: 30,
+                                backgroundColor: Colors.white.withOpacity(0.2),
+                                child: Text(
+                                  patientFirstName.isNotEmpty
+                                      ? patientFirstName[0]
+                                      : '?',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      // Current meal info
+                      const SizedBox(height: 20),
+
+                      // Current or Next Meal Info
                       if (currentMeal.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
+                            horizontal: 16,
+                            vertical: 12,
                           ),
                           decoration: BoxDecoration(
-                            color: theme.primaryColor,
-                            borderRadius: BorderRadius.circular(10),
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                currentMeal == 'Breakfast'
-                                    ? Icons.breakfast_dining
-                                    : currentMeal == 'Lunch'
-                                    ? Icons.lunch_dining
-                                    : Icons.dinner_dining,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 8),
                               Text(
-                                'Current Meal: $currentMeal',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                _getMealIcon(currentMeal),
+                                style: const TextStyle(fontSize: 24),
+                              ),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'CURRENT MEAL TIME',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    currentMeal,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        )
+                      else if (nextMeal.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('⏰', style: TextStyle(fontSize: 24)),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'NEXT MEAL TIME',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    nextMeal,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -353,20 +562,131 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
 
-                // Medication title
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                  child: Row(
-                    children: [
-                      Icon(Icons.medication, color: theme.primaryColor),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Your Medications',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                // Medication Progress
+                FutureBuilder<List<int>>(
+                  future: Future.wait([
+                    _getDailyMedicationCount(),
+                    _getTakenMedicationCount(),
+                  ]),
+                  builder: (context, snapshot) {
+                    int totalMeds =
+                        snapshot.data != null ? snapshot.data![0] : 0;
+                    int takenMeds =
+                        snapshot.data != null ? snapshot.data![1] : 0;
+                    double progress = totalMeds > 0 ? takenMeds / totalMeds : 0;
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16.0,
+                        horizontal: 20.0,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              spreadRadius: 2,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            CircularPercentIndicator(
+                              radius: 35.0,
+                              lineWidth: 8.0,
+                              percent: progress,
+                              center: Text(
+                                '$takenMeds/$totalMeds',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: theme.primaryColor,
+                                ),
+                              ),
+                              progressColor: theme.primaryColor,
+                              backgroundColor: theme.primaryColor.withOpacity(
+                                0.1,
+                              ),
+                              circularStrokeCap: CircularStrokeCap.round,
+                              animation: true,
+                              animationDuration: 1000,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Today\'s Progress',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.primaryColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    progress >= 1
+                                        ? 'Great job! All medications taken.'
+                                        : 'Keep going! ${totalMeds - takenMeds} medications left to take.',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                    );
+                  },
+                ),
+
+                // Medication title
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.medication, color: theme.primaryColor),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Your Medications',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (currentMeal.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'For ${currentMeal.toLowerCase()}',
+                            style: TextStyle(
+                              color: theme.primaryColor,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -412,6 +732,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           if (docs.isEmpty) {
                             return _buildEmptyState(
                               'No medications added yet.',
+                              'You don\'t have any medications scheduled.\n'
+                                  'Medicines will show as reminders once your Doctor adds a prescription for you.',
                             );
                           }
 
@@ -460,11 +782,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           if (filteredDocs.isEmpty) {
                             if (currentMeal.isEmpty) {
                               return _buildEmptyState(
-                                'It\'s not meal time yet. Check back later.',
+                                'Not meal time yet',
+                                'It\'s not meal time yet. Check back later when it\'s time for your next meal.',
                               );
                             }
                             return _buildEmptyState(
-                              'No medicines to take right now.',
+                              'All caught up!',
+                              'You\'ve taken all your medications for $currentMeal. Great job!',
                             );
                           }
 
@@ -481,6 +805,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   data['beforeAfterMeal'] ?? '';
                               final durationDays =
                                   data['durationDays']?.toString() ?? '';
+                              final color = _getMedicineColor(index);
 
                               return _buildMedicationCard(
                                 context,
@@ -491,6 +816,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 doc.id,
                                 currentMeal,
                                 db,
+                                color,
                               );
                             },
                           );
@@ -502,63 +828,182 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          bottomNavigationBar: BottomNavigationBar(
-            items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person),
-                label: 'Profile',
-              ),
-            ],
-            currentIndex: _selectedIndex,
-            selectedItemColor: theme.primaryColor,
-            onTap: (index) {
-              if (index == 1) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder:
-                        (context) => ProfileScreen(
-                          patientId: widget.patientId,
-                          patientName: "$patientFirstName $patientLastName",
-                          age: patientAge,
-                          breakfast: formatTimestampToTime(
-                            mealTiming['Breakfast'],
+          bottomNavigationBar: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  offset: const Offset(0, -2),
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+            child: BottomNavigationBar(
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home_rounded),
+                  activeIcon: Icon(Icons.home_rounded, size: 28),
+                  label: 'Home',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline_rounded),
+                  activeIcon: Icon(Icons.person_rounded, size: 28),
+                  label: 'Profile',
+                ),
+              ],
+              currentIndex: _selectedIndex,
+              selectedItemColor: theme.primaryColor,
+              unselectedItemColor: Colors.grey[400],
+              selectedFontSize: 12,
+              unselectedFontSize: 12,
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              onTap: (index) {
+                if (index == 1) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) => ProfileScreen(
+                            patientId: widget.patientId,
+                            patientName: "$patientFirstName $patientLastName",
+                            age: patientAge,
+                            breakfast: formatTimestampToTime(
+                              mealTiming['Breakfast'],
+                            ),
+                            lunch: formatTimestampToTime(mealTiming['Lunch']),
+                            dinner: formatTimestampToTime(mealTiming['Dinner']),
+                            height: patientHeight,
+                            weight: patientWeight,
+                            bloodType: patientBloodType,
                           ),
-                          lunch: formatTimestampToTime(mealTiming['Lunch']),
-                          dinner: formatTimestampToTime(mealTiming['Dinner']),
-                          height: patientHeight,
-                          weight: patientWeight,
-                        ),
-                  ),
-                );
-              } else {
-                setState(() {
-                  _selectedIndex = index;
-                });
-              }
-            },
+                    ),
+                  );
+                } else {
+                  setState(() {
+                    _selectedIndex = index;
+                  });
+                }
+              },
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _buildEmptyState(String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.medication_outlined, size: 80, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            textAlign: TextAlign.center,
-          ),
-        ],
+  Widget _buildLoadingScreen(ThemeData theme) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              height: 100,
+              width: 100,
+              child: CircularProgressIndicator(
+                strokeWidth: 8,
+                valueColor: AlwaysStoppedAnimation<Color>(theme.primaryColor),
+              ),
+            ),
+            const SizedBox(height: 32),
+            Text(
+              'Loading Home Screen...',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: theme.primaryColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildPatientNotFoundScreen() {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 80, color: Colors.red),
+            const SizedBox(height: 24),
+            const Text(
+              'Patient Profile Not Found',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                'We couldn\'t find your patient profile. Please log in again.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text('Return to Login'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String title, String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.medication_outlined, size: 90, color: Colors.grey[300]),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getMedicineColor(int index) {
+    final colors = [
+      const Color(0xFF4CAF50), // Green
+      const Color(0xFF2196F3), // Blue
+      const Color(0xFFFFA000), // Amber
+      const Color(0xFFE91E63), // Pink
+      const Color(0xFF9C27B0), // Purple
+    ];
+    return colors[index % colors.length];
   }
 
   Widget _buildMedicationCard(
@@ -570,17 +1015,27 @@ class _HomeScreenState extends State<HomeScreen> {
     String medicineId,
     String currentMeal,
     FirebaseFirestore db,
+    Color medicineColor,
   ) {
     final today = DateTime.now().toIso8601String().split('T')[0];
     final theme = Theme.of(context);
-    final pillColor = theme.primaryColor.withOpacity(0.8);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.05),
+              blurRadius: 10,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -589,15 +1044,15 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 // Pill icon
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: pillColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    color: medicineColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
                     Icons.medication_rounded,
-                    color: pillColor,
-                    size: 28,
+                    color: medicineColor,
+                    size: 32,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -609,24 +1064,24 @@ class _HomeScreenState extends State<HomeScreen> {
                       Text(
                         medicineName,
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
                           _buildInfoChip(
                             context,
                             dosage,
-                            Icons.straighten,
+                            Icons.straighten_rounded,
                             theme.primaryColor.withOpacity(0.1),
                           ),
                           const SizedBox(width: 8),
                           _buildInfoChip(
                             context,
                             '$instructions meal',
-                            Icons.access_time,
+                            Icons.access_time_rounded,
                             theme.primaryColor.withOpacity(0.1),
                           ),
                         ],
@@ -634,14 +1089,40 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 8),
                       _buildInfoChip(
                         context,
-                        '$duration days',
-                        Icons.calendar_today,
+                        'For $duration days',
+                        Icons.calendar_today_rounded,
                         theme.primaryColor.withOpacity(0.1),
                       ),
                     ],
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 20),
+            // Instructions
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: Colors.grey[600],
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _getInstructionText(instructions, dosage),
+                      style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -653,18 +1134,48 @@ class _HomeScreenState extends State<HomeScreen> {
                     context: context,
                     builder:
                         (context) => AlertDialog(
-                          title: const Text('Confirm'),
-                          content: Text('Mark $medicineName as taken?'),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          title: const Text('Confirm Medication'),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(height: 8),
+                              Icon(
+                                Icons.check_circle_outline_rounded,
+                                color: theme.primaryColor,
+                                size: 60,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Did you take $medicineName?',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Dosage: $dosage',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(context),
-                              child: const Text('Cancel'),
+                              child: Text(
+                                'Not Yet',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
                             ),
-                            TextButton(
+                            ElevatedButton(
                               onPressed: () async {
                                 Navigator.pop(context);
 
-                                // Find the existing intake record first
+                                // Find the existing intake record
                                 final existingRecords =
                                     await db
                                         .collection('patients')
@@ -694,7 +1205,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             FieldValue.serverTimestamp(),
                                       });
                                 } else {
-                                  // Create new record if somehow one doesn't exist
+                                  // Create new record if needed
                                   await db
                                       .collection('patients')
                                       .doc(widget.patientId)
@@ -712,16 +1223,39 @@ class _HomeScreenState extends State<HomeScreen> {
                                 }
 
                                 // Show success message
+                                if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text(
-                                      '$medicineName marked as taken!',
+                                    content: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.check_circle_rounded,
+                                          color: Colors.white,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text('$medicineName marked as taken!'),
+                                      ],
                                     ),
                                     backgroundColor: Colors.green,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    margin: const EdgeInsets.all(10),
                                   ),
                                 );
                               },
-                              child: const Text('Confirm'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: theme.primaryColor,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: const Text('Yes, I Took It'),
                             ),
                           ],
                         ),
@@ -730,10 +1264,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: theme.primaryColor,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                   ),
+                  elevation: 3,
                 ),
                 child: const Text(
                   'Mark as Taken',
@@ -747,6 +1282,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String _getInstructionText(String instructions, String dosage) {
+    if (instructions.toLowerCase().contains('before')) {
+      return 'Take $dosage $instructions your meal.';
+    } else if (instructions.toLowerCase().contains('after')) {
+      return 'Take $dosage $instructions your meal.';
+    } else {
+      return 'Take $dosage as prescribed by your doctor.';
+    }
+  }
+
   Widget _buildInfoChip(
     BuildContext context,
     String label,
@@ -754,17 +1299,20 @@ class _HomeScreenState extends State<HomeScreen> {
     Color backgroundColor,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 16),
-          const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 14)),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
         ],
       ),
     );

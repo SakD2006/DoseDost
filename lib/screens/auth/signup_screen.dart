@@ -26,7 +26,18 @@ class _SignupScreenState extends State<SignupScreen> {
   TimeOfDay _dinnerTime = const TimeOfDay(hour: 19, minute: 0);
 
   String? _selectedGender;
+  String? _selectedBloodGroup;
   final List<String> _genderOptions = ['Male', 'Female', 'Other'];
+  final List<String> _bloodGroupOptions = [
+    'A+',
+    'A-',
+    'B+',
+    'B-',
+    'AB+',
+    'AB-',
+    'O+',
+    'O-',
+  ];
 
   String? errorMessage;
   bool _isLoading = false;
@@ -96,7 +107,8 @@ class _SignupScreenState extends State<SignupScreen> {
         _firstNameController.text.trim().isEmpty ||
         _lastNameController.text.trim().isEmpty ||
         _selectedDate == null ||
-        _selectedGender == null) {
+        _selectedGender == null ||
+        _selectedBloodGroup == null) {
       setState(() {
         errorMessage = "Please fill in all required fields";
       });
@@ -157,6 +169,7 @@ class _SignupScreenState extends State<SignupScreen> {
               'First Name': _firstNameController.text.trim(),
               'Last Name': _lastNameController.text.trim(),
               'Gender': _selectedGender,
+              'Blood Group': _selectedBloodGroup,
               'Date of Birth': Timestamp.fromDate(_selectedDate!),
               'Age': age,
               'Height': _heightController.text.trim(),
@@ -271,7 +284,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                       ),
                     ]),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     _buildDropdownField<String>(
                       label: 'Gender*',
                       value: _selectedGender,
@@ -282,7 +295,17 @@ class _SignupScreenState extends State<SignupScreen> {
                         });
                       },
                     ),
-                    const SizedBox(height: 16),
+                    _buildDropdownField<String>(
+                      label: 'Blood Group*',
+                      value: _selectedBloodGroup,
+                      items: _bloodGroupOptions,
+                      onChanged: (val) {
+                        setState(() {
+                          _selectedBloodGroup = val;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
                     GestureDetector(
                       onTap: () => _pickDate(context),
                       child: AbsorbPointer(
