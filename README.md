@@ -169,7 +169,7 @@ dependencies:
   firebase_core: ^2.10.0
   cloud_firestore: ^4.7.1
   qr_flutter: ^4.0.0
-  firebase_auth: ^4.6.2 (optional)
+  firebase_auth: ^4.6.2
 ```
 
 ---

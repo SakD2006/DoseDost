@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'profile_screen.dart';
-//import '../../services/notification_service.dart';
+import '../../services/notification_service.dart';
 import '../auth/login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -21,6 +21,49 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  String _currentMeal = '';
+  bool _initializedRecords = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Check current meal time and initialize records
+    _checkCurrentMealAndInitializeRecords();
+    NotificationService.checkAndSendMedicationReminders();
+  }
+
+  Future<void> _checkCurrentMealAndInitializeRecords() async {
+    final db = FirebaseFirestore.instance;
+    final snapshot =
+        await db.collection('patients').doc(widget.patientId).get();
+
+    if (snapshot.exists) {
+      final patientData = snapshot.data() as Map<String, dynamic>;
+      final mealTiming = patientData['Meal-timing'] ?? {};
+
+      // Convert meal timings to minutes
+      Map<String, int> mealMinutes = {};
+      mealTiming.forEach((key, value) {
+        if (value is Timestamp) {
+          mealMinutes[key] = timestampToMinutes(value);
+        }
+      });
+
+      final currentMinutes = DateTime.now().hour * 60 + DateTime.now().minute;
+      final currentMeal = getCurrentMealTime(currentMinutes, mealMinutes);
+
+      setState(() {
+        _currentMeal = currentMeal;
+      });
+
+      if (currentMeal.isNotEmpty && !_initializedRecords) {
+        await initializeMedicationRecords(currentMeal);
+        setState(() {
+          _initializedRecords = true;
+        });
+      }
+    }
+  }
 
   // Convert timestamp to minutes since midnight
   int timestampToMinutes(Timestamp timestamp) {
@@ -56,12 +99,73 @@ class _HomeScreenState extends State<HomeScreen> {
     return ''; // No current meal
   }
 
+  Future<void> initializeMedicationRecords(String mealTime) async {
+    final db = FirebaseFirestore.instance;
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final medications =
+        await db
+            .collection('patients')
+            .doc(widget.patientId)
+            .collection('medications')
+            .get();
+
+    // Get the meal index
+    final meals = ['Breakfast', 'Lunch', 'Dinner'];
+    final mealIndex = meals.indexOf(mealTime);
+
+    for (var doc in medications.docs) {
+      var data = doc.data();
+      String frequency = data['frequency'] ?? '';
+      List<String> freqParts = frequency.split('-');
+
+      // Check if this medication should be taken at this meal
+      if (freqParts.length == 3 && freqParts[mealIndex] == '1') {
+        if (data['startDate'] != null && data['durationDays'] != null) {
+          Timestamp startTimestamp = data['startDate'];
+          DateTime startDate = startTimestamp.toDate();
+          int durationDays = data['durationDays'];
+          DateTime endDate = startDate.add(Duration(days: durationDays - 1));
+          DateTime todayDate = DateTime.now();
+
+          // Check if today is within the medication duration
+          if (todayDate.isAfter(startDate.subtract(const Duration(days: 1))) &&
+              todayDate.isBefore(endDate.add(const Duration(days: 1)))) {
+            // Check if a record already exists
+            final existingRecord =
+                await db
+                    .collection('patients')
+                    .doc(widget.patientId)
+                    .collection('medicineIntakes')
+                    .where('date', isEqualTo: today)
+                    .where('medicineId', isEqualTo: doc.id)
+                    .where('mealTime', isEqualTo: mealTime)
+                    .get();
+
+            // If no record exists, create one with taken=false
+            if (existingRecord.docs.isEmpty) {
+              await db
+                  .collection('patients')
+                  .doc(widget.patientId)
+                  .collection('medicineIntakes')
+                  .add({
+                    'medicineId': doc.id,
+                    'date': today,
+                    'mealTime': mealTime,
+                    'taken': false,
+                    'timestamp': FieldValue.serverTimestamp(),
+                  });
+            }
+          }
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final db = FirebaseFirestore.instance;
     final today =
         DateTime.now().toIso8601String().split('T')[0]; // e.g., "2023-10-01"
-    final currentMinutes = DateTime.now().hour * 60 + DateTime.now().minute;
     final todayDate = DateTime.now();
     final theme = Theme.of(context);
 
@@ -133,7 +237,19 @@ class _HomeScreenState extends State<HomeScreen> {
         });
 
         // Get current meal time
+        final currentMinutes = DateTime.now().hour * 60 + DateTime.now().minute;
         final currentMeal = getCurrentMealTime(currentMinutes, mealMinutes);
+
+        // Update state if meal time changed
+        if (currentMeal != _currentMeal) {
+          _currentMeal = currentMeal;
+          if (currentMeal.isNotEmpty) {
+            // This will run in build, which is not ideal, but will work for this example
+            // In a production app, consider using a better approach like a Timer
+            Future.microtask(() => initializeMedicationRecords(currentMeal));
+          }
+        }
+
         final meals = ['Breakfast', 'Lunch', 'Dinner'];
 
         // Format current date for display
@@ -258,8 +374,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: StreamBuilder<QuerySnapshot>(
                     stream:
                         db
+                            .collection('patients')
+                            .doc(widget.patientId)
                             .collection('medicineIntakes')
-                            .where('patientId', isEqualTo: widget.patientId)
                             .where('date', isEqualTo: today)
                             .snapshots(),
                     builder: (context, intakesSnapshot) {
@@ -544,14 +661,51 @@ class _HomeScreenState extends State<HomeScreen> {
                             TextButton(
                               onPressed: () async {
                                 Navigator.pop(context);
-                                await db.collection('medicineIntakes').add({
-                                  'patientId': widget.patientId,
-                                  'medicineId': medicineId,
-                                  'date': today,
-                                  'mealTime': currentMeal,
-                                  'taken': true,
-                                  'timestamp': FieldValue.serverTimestamp(),
-                                });
+
+                                // Find the existing intake record first
+                                final existingRecords =
+                                    await db
+                                        .collection('patients')
+                                        .doc(widget.patientId)
+                                        .collection('medicineIntakes')
+                                        .where('date', isEqualTo: today)
+                                        .where(
+                                          'medicineId',
+                                          isEqualTo: medicineId,
+                                        )
+                                        .where(
+                                          'mealTime',
+                                          isEqualTo: currentMeal,
+                                        )
+                                        .get();
+
+                                if (existingRecords.docs.isNotEmpty) {
+                                  // Update existing record
+                                  await db
+                                      .collection('patients')
+                                      .doc(widget.patientId)
+                                      .collection('medicineIntakes')
+                                      .doc(existingRecords.docs.first.id)
+                                      .update({
+                                        'taken': true,
+                                        'timestamp':
+                                            FieldValue.serverTimestamp(),
+                                      });
+                                } else {
+                                  // Create new record if somehow one doesn't exist
+                                  await db
+                                      .collection('patients')
+                                      .doc(widget.patientId)
+                                      .collection('medicineIntakes')
+                                      .add({
+                                        'medicineId': medicineId,
+                                        'date': today,
+                                        'mealTime': currentMeal,
+                                        'taken': true,
+                                        'timestamp':
+                                            FieldValue.serverTimestamp(),
+                                      });
+                                }
 
                                 // Show success message
                                 ScaffoldMessenger.of(context).showSnackBar(

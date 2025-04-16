@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../home/home_screen.dart';
 import 'signup_screen.dart';
+import '../../services/notification_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -42,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (user != null) {
         // Use displayName if available; fallback to email.
         String patientName = user.displayName ?? user.email ?? 'Patient';
-
+        await NotificationService.setPatientId(user.uid);
         // Navigate to HomeScreen with required parameters.
         Navigator.pushReplacement(
           context,

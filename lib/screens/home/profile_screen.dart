@@ -3,6 +3,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'home_screen.dart';
 import '../auth/login_screen.dart';
+import '../../services/notification_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   final String patientId;
@@ -37,6 +38,8 @@ class ProfileScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
+              // When logging out
+              NotificationService.cancelAllReminders();
               await FirebaseAuth.instance.signOut();
               Navigator.pushReplacement(
                 context,
