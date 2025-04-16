@@ -148,6 +148,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   .doc(widget.patientId)
                   .collection('medicineIntakes')
                   .add({
+                    'medicineName': data['medicineName'],
+                    'dosage': data['dosage'],
                     'medicineId': doc.id,
                     'date': today,
                     'mealTime': mealTime,
@@ -698,6 +700,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                       .doc(widget.patientId)
                                       .collection('medicineIntakes')
                                       .add({
+                                        'medicineName': medicineName,
+                                        'dosage': dosage,
                                         'medicineId': medicineId,
                                         'date': today,
                                         'mealTime': currentMeal,
