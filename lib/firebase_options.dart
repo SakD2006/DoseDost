@@ -40,16 +40,6 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBVu5PYk7-rb1aXzck6qBU9ibuh4iJRVbI',
-    appId: '1:155575190793:web:e9f62fb68958146d43bfd8',
-    messagingSenderId: '155575190793',
-    projectId: 'vit-prescription',
-    authDomain: 'vit-prescription.firebaseapp.com',
-    storageBucket: 'vit-prescription.firebasestorage.app',
-    measurementId: 'G-C5B56LXBS7',
-  );
-
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBQ12qaGtR0byr6AS9S0BXhK2HO7DZNBa8',
     appId: '1:155575190793:android:9145b1a96785039943bfd8',
@@ -59,30 +49,11 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBbCNot7dI10V5zzU1TKjb2-l7yF1gQGFI',
+    apiKey: '',
     appId: '1:155575190793:ios:fb26077e54613bee43bfd8',
     messagingSenderId: '155575190793',
     projectId: 'vit-prescription',
     storageBucket: 'vit-prescription.firebasestorage.app',
     iosBundleId: 'com.example.dosedost',
-  );
-
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBbCNot7dI10V5zzU1TKjb2-l7yF1gQGFI',
-    appId: '1:155575190793:ios:fb26077e54613bee43bfd8',
-    messagingSenderId: '155575190793',
-    projectId: 'vit-prescription',
-    storageBucket: 'vit-prescription.firebasestorage.app',
-    iosBundleId: 'com.example.dosedost',
-  );
-
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBVu5PYk7-rb1aXzck6qBU9ibuh4iJRVbI',
-    appId: '1:155575190793:web:535e0d4382d1a64243bfd8',
-    messagingSenderId: '155575190793',
-    projectId: 'vit-prescription',
-    authDomain: 'vit-prescription.firebaseapp.com',
-    storageBucket: 'vit-prescription.firebasestorage.app',
-    measurementId: 'G-FEXZTNY64Y',
   );
 }
