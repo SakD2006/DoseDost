@@ -49,7 +49,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: '',
+    apiKey: 'AIzaSyBbCNot7dI10V5zzU1TKjb2-l7yF1gQGFI',
     appId: '1:155575190793:ios:fb26077e54613bee43bfd8',
     messagingSenderId: '155575190793',
     projectId: 'vit-prescription',
